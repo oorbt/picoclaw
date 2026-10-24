@@ -205,6 +205,11 @@ make build-launcher
 # Build core binaries for all Makefile-managed platforms
 make build-all
 
+# linux/arm64: picoclaw + web launcher (frontend embedded) bundled into
+# build/dist/picoclaw-linux-arm64/ and build/dist/picoclaw-linux-arm64.tar.gz
+# (alias: make all-arm64)
+make build-all-arm64
+
 # Build for Raspberry Pi Zero 2 W
 # 32-bit: make build-linux-arm
 # 64-bit: make build-linux-arm64

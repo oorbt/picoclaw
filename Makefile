@@ -1,4 +1,4 @@
-.PHONY: all build install uninstall clean help test integration-test build-all lint-docs
+.PHONY: all build install uninstall clean help test integration-test build-all build-all-arm64 all-arm64 lint-docs
 
 # Build variables
 BINARY_NAME=picoclaw
@@ -312,6 +312,23 @@ build-android-bundle: generate
 ## build-pi-zero: Build for Raspberry Pi Zero 2 W (32-bit and 64-bit)
 build-pi-zero: build-linux-arm build-linux-arm64
 	@echo "Pi Zero 2 W builds: $(BUILD_DIR)/$(BINARY_NAME)-linux-arm (32-bit), $(BUILD_DIR)/$(BINARY_NAME)-linux-arm64 (64-bit)"
+
+## build-all-arm64: Build picoclaw + launcher (with frontend) for linux/arm64 and bundle into build/dist/picoclaw-linux-arm64(.tar.gz)
+build-all-arm64: generate build-launcher-frontend
+	@echo "Building picoclaw and picoclaw-launcher for linux/arm64..."
+	@mkdir -p $(BUILD_DIR)
+	GOOS=linux GOARCH=arm64 $(GO) build $(GOFLAGS) -ldflags "$(LDFLAGS)" -o $(BUILD_DIR)/$(BINARY_NAME)-linux-arm64 ./$(CMD_DIR)
+	cd web && GOOS=linux GOARCH=arm64 $(GO) build $(GOFLAGS) -ldflags "$(LDFLAGS)" -o $(CURDIR)/$(BUILD_DIR)/picoclaw-launcher-linux-arm64 ./backend/
+	@rm -rf $(BUILD_DIR)/dist/picoclaw-linux-arm64 $(BUILD_DIR)/dist/picoclaw-linux-arm64.tar.gz
+	@mkdir -p $(BUILD_DIR)/dist/picoclaw-linux-arm64
+	@cp $(BUILD_DIR)/$(BINARY_NAME)-linux-arm64 $(BUILD_DIR)/dist/picoclaw-linux-arm64/$(BINARY_NAME)
+	@cp $(BUILD_DIR)/picoclaw-launcher-linux-arm64 $(BUILD_DIR)/dist/picoclaw-linux-arm64/picoclaw-launcher
+	@cp web/picoclaw-launcher.desktop web/picoclaw-launcher.png config/config.example.json $(BUILD_DIR)/dist/picoclaw-linux-arm64/
+	@tar -C $(BUILD_DIR)/dist -czf $(BUILD_DIR)/dist/picoclaw-linux-arm64.tar.gz picoclaw-linux-arm64
+	@echo "Build complete: $(BUILD_DIR)/dist/picoclaw-linux-arm64 and $(BUILD_DIR)/dist/picoclaw-linux-arm64.tar.gz"
+
+## all-arm64: Alias for build-all-arm64
+all-arm64: build-all-arm64
 
 ## build-all: Build the picoclaw core binary for all Makefile-managed platforms
 build-all: generate
