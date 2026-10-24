@@ -533,6 +533,14 @@ picoclaw skills search "web scraping"
 picoclaw skills install <skill-name>
 ```
 
+ClawHub skills are namespaced by owner. Install them with the owner-qualified form
+(`@owner/slug` or `owner/slug`); a bare slug shared by several owners is rejected with the list of candidates:
+
+```bash
+picoclaw skills install @iahmadzain/home-assistant
+picoclaw skills install --registry clawhub iahmadzain/home-assistant
+```
+
 **Configure skill registries**:
 
 Add to your `config.json`:

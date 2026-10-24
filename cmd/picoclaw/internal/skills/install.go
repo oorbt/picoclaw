@@ -17,9 +17,9 @@ func newInstallCommand() *cobra.Command {
 		Short: "Install skill from GitHub or a registry",
 		Example: `
 picoclaw skills install sipeed/picoclaw-skills/weather
-picoclaw skills install --registry clawhub github
+picoclaw skills install --registry clawhub @owner/slug
 picoclaw skills install @iahmadzain/home-assistant   # '@owner/slug' defaults to the clawhub registry
-picoclaw skills install --registry clawhub owner/slug
+picoclaw skills install --registry clawhub owner/slug   # bare slugs shared by several owners are ambiguous
 `,
 		Args: func(cmd *cobra.Command, args []string) error {
 			if registry != "" {
