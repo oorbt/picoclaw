@@ -292,6 +292,254 @@ Notes that matter:
 ```
 
 **Z.AI Coding Plan (GLM)**
+> Z.AI and 智谱 AI are two brands of the same provider. For the Z.AI Coding Plan use the `zai` provider (aliases: `zai-coding`, `z.ai`, `glm-coding`); its default api base is the coding endpoint. China users: set `api_base` to `https://open.bigmodel.cn/api/coding/paas/v4`.
+```json
+{
+  "model_name": "glm-5.3",
+  "provider": "zai",
+  "model": "glm-5.3",
+  "api_keys": ["your-z.ai-key"],
+  "api_base": "https://api.z.ai/api/coding/paas/v4"
+}
+```
+
+**DeepSeek**        | `deepseek`        | `https://api.deepseek.com/v1`                       | OpenAI    | [Get Key](https://platform.deepseek.com)                         |
+| **Google Gemini**   | `gemini`          | `https://generativelanguage.googleapis.com/v1beta`  | Gemini    | [Get Key](https://aistudio.google.com/api-keys)                  |
+| **Groq**            | `groq`            | `https://api.groq.com/openai/v1`                    | OpenAI    | [Get Key](https://console.groq.com)                              |
+| **Moonshot**        | `moonshot`        | `https://api.moonshot.cn/v1`                        | OpenAI    | [Get Key](https://platform.moonshot.cn)                          |
+| **通义千问 (Qwen)** | `qwen`            | `https://dashscope.aliyuncs.com/compatible-mode/v1` | OpenAI    | [Get Key](https://dashscope.console.aliyun.com)                  |
+| **NVIDIA**          | `nvidia`          | `https://integrate.api.nvidia.com/v1`               | OpenAI    | [Get Key](https://build.nvidia.com)                              |
+| **Ollama**          | `ollama`          | `http://localhost:11434/v1`                         | OpenAI    | Local (no key needed)                                            |
+| **LM Studio**       | `lmstudio`        | `http://localhost:1234/v1`                          | OpenAI    | Optional (local default: no key)                                 |
+| **OpenRouter**      | `openrouter`      | `https://openrouter.ai/api/v1`                      | OpenAI    | [Get Key](https://openrouter.ai/keys)                            |
+| **LiteLLM Proxy**   | `litellm`         | `http://localhost:4000/v1`                          | OpenAI    | Your LiteLLM proxy key                                           |
+| **VLLM**            | `vllm`            | `http://localhost:8000/v1`                          | OpenAI    | Local                                                            |
+| **Cerebras**        | `cerebras`        | `https://api.cerebras.ai/v1`                        | OpenAI    | [Get Key](https://cerebras.ai)                                   |
+| **VolcEngine (Doubao)** | `volcengine`  | `https://ark.cn-beijing.volces.com/api/v3`          | OpenAI    | [Get Key](https://www.volcengine.com/activity/codingplan?utm_campaign=PicoClaw&utm_content=PicoClaw&utm_medium=devrel&utm_source=OWO&utm_term=PicoClaw) |
+| **神算云**          | `shengsuanyun`    | `https://router.shengsuanyun.com/api/v1`            | OpenAI    | -                                                                |
+| **BytePlus**        | `byteplus`        | `https://ark.ap-southeast.bytepluses.com/api/v3`    | OpenAI    | [Get Key](https://www.byteplus.com)                              |
+| **Vivgrid**         | `vivgrid`         | `https://api.vivgrid.com/v1`                        | OpenAI    | [Get Key](https://vivgrid.com)                                   |
+| **LongCat**         | `longcat`         | `https://api.longcat.chat/openai`                   | OpenAI    | [Get Key](https://longcat.chat/platform)                         |
+| **ModelScope (魔搭)**| `modelscope`     | `https://api-inference.modelscope.cn/v1`            | OpenAI    | [Get Token](https://modelscope.cn/my/tokens)                     |
+| **Xiaomi MiMo**     | `mimo`            | `https://api.xiaomimimo.com/v1`                     | OpenAI    | [Get Key](https://platform.xiaomimimo.com)                       |
+| **Azure OpenAI**    | `azure`           | `https://{resource}.openai.azure.com`               | Azure     | [Get Key](https://portal.azure.com)                              |
+| **Antigravity**     | `antigravity`     | Google Cloud                                        | Custom    | OAuth only                                                       |
+| **GitHub Copilot**  | `github-copilot`  | `localhost:4321`                                    | gRPC      | -                                                                |
+
+#### Basic Configuration
+
+```json
+{
+  "model_list": [
+    {
+      "model_name": "ark-code-latest",
+      "provider": "volcengine",
+      "model": "ark-code-latest",
+      "api_keys": ["sk-your-api-key"]
+    },
+    {
+      "model_name": "gpt-5.4",
+      "provider": "openai",
+      "model": "gpt-5.4",
+      "api_keys": ["sk-your-openai-key"]
+    },
+    {
+      "model_name": "claude-sonnet-4.6",
+      "provider": "anthropic",
+      "model": "claude-sonnet-4.6",
+      "api_keys": ["sk-ant-your-key"]
+    },
+    {
+      "model_name": "glm-4.7",
+      "provider": "zhipu",
+      "model": "glm-4.7",
+      "api_keys": ["your-zhipu-key"]
+    }
+  ],
+  "agents": {
+    "defaults": {
+      "model_name": "gpt-5.4"
+    }
+  }
+}
+```
+
+#### `model_list` Entry Fields
+
+| Field | Type | Required | Description                                                                                                                                                                                                                                 |
+|-------|------|----------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `model_name` | string | Yes | Unique name used to reference this model in agent config                                                                                                                                                                                    |
+| `provider` | string | No | Preferred provider identifier. When present, PicoClaw sends `model` unchanged to that provider                                                                                                                                              |
+| `model` | string | Yes | Native model ID when `provider` is set. If `provider` is omitted, the legacy `provider/model` form is still supported                                                                                                                       |
+| `api_keys` | string[] | Yes* | API key(s) for authentication. Multiple keys enable per-request rotation. Not required for local providers (Ollama, LM Studio, VLLM)                                                                                                        |
+| `api_base` | string | No | Override the default API endpoint URL                                                                                                                                                                                                       |
+| `proxy` | string | No | HTTP proxy URL for this model entry                                                                                                                                                                                                         |
+| `user_agent` | string | No | Custom `User-Agent` header sent with API requests (supported by OpenAI-compatible, Gemini, Anthropic, and Azure providers)                                                                                                                  |
+| `request_timeout` | int | No | Request timeout in seconds (default varies by provider)                                                                                                                                                                                     |
+| `max_tokens_field` | string | No | Override the max tokens field name in request body (e.g., `max_completion_tokens` for o1 models)                                                                                                                                            |
+| `thinking_level` | string | No | Extended thinking level: `off`, `low`, `medium`, `high`, `xhigh`, or `adaptive`                                                                                                                                                             |
+| `tool_schema_transform` | string | No | Optional compatibility transform for tool parameter schemas. Default: disabled. Supported values: `simple`.                                                                                             |
+| `extra_body` | object | No | Additional fields to inject into every request body                                                                                                                                                                                         |
+| `custom_headers` | object | No | Additional HTTP headers to inject into every request (e.g., `{"X-Source":"coding-plan"}`). If a key matches a built-in header, the custom value overrides the built-in one (e.g., `Authorization`, `User-Agent`, `Content-Type`, `Accept`). |
+| `streaming.enabled` | bool | No | Opt-in for provider streaming on this model entry. Defaults to `false` and also requires the active channel's `settings.streaming.enabled` to be `true`. |
+| `rpm` | int | No | Per-minute request rate limit                                                                                                                                                                                                               |
+| `fallbacks` | string[] | No | Fallback model names for automatic failover                                                                                                                                                                                                 |
+| `enabled` | bool | No | Whether this model entry is active (default: `true`)                                                                                                                                                                                        |
+
+When streaming is disabled, omit the `streaming` block. Writing `"streaming": {"enabled": false}` is optional and not needed in generated or hand-written config.
+
+`extra_body` is especially useful for model-specific TTS fields on OpenAI-compatible
+speech routes, for example custom `voice` names or `response_format: "mp3"`.
+
+#### Tool Schema Compatibility
+
+By default, PicoClaw now forwards tool JSON Schemas unchanged.
+
+Some providers reject advanced JSON Schema features such as `$ref`, `$defs`, `anyOf`, `oneOf`, `allOf`, `pattern`, or numeric/string constraints inside tool declarations. For those models, you can opt into a compatibility transform per model entry with `tool_schema_transform`.
+
+Use `simple` when the upstream provider expects the conservative style function schema subset:
+
+```json
+{
+  "model_name": "gemini-2.5-flash-safe-tools",
+  "provider": "gemini",
+  "model": "gemini-2.5-flash",
+  "api_keys": ["your-gemini-key"],
+  "tool_schema_transform": "simple"
+}
+```
+
+Notes:
+
+- Default behavior is disabled. If you omit `tool_schema_transform`, PicoClaw sends the original tool schema.
+- The setting is per model entry, so you can enable it only for the providers that need it.
+
+#### Provider / Model Resolution
+
+PicoClaw resolves `provider` and the runtime model ID using these rules:
+
+- If `provider` is set, `model` is used as-is.
+- If `provider` is omitted, PicoClaw treats the first `/` segment in `model` as the provider and everything after that first `/` as the runtime model ID.
+
+Examples:
+
+| Config | Resolved Provider | Model Sent Upstream |
+| --- | --- | --- |
+| `"provider": "openai", "model": "gpt-5.4"` | `openai` | `gpt-5.4` |
+| `"model": "openai/gpt-5.4"` | `openai` | `gpt-5.4` |
+| `"provider": "openrouter", "model": "openai/gpt-5.4"` | `openrouter` | `openai/gpt-5.4` |
+| `"model": "openrouter/openai/gpt-5.4"` | `openrouter` | `openai/gpt-5.4` |
+
+#### Voice Transcription
+
+You can configure a dedicated model for audio transcription with `voice.model_name`. This lets you reuse existing multimodal providers that support audio input instead of relying only on Groq.
+
+If `voice.model_name` is not configured, PicoClaw will continue to fall back to Groq transcription when a Groq API key is available.
+
+```json
+{
+  "model_list": [
+    {
+      "model_name": "voice-gemini",
+      "provider": "gemini",
+      "model": "gemini-2.5-flash",
+      "api_keys": ["your-gemini-key"]
+    }
+  ],
+  "voice": {
+    "model_name": "voice-gemini",
+    "echo_transcription": false
+  },
+  "providers": {
+    "groq": {
+      "api_key": "gsk_xxx"
+    }
+  }
+}
+```
+
+#### Voice Synthesis
+
+You can configure a dedicated text-to-speech model with `voice.tts_model_name`.
+When the provider needs model-specific TTS request fields, put them in
+`model_list[].extra_body`.
+
+Example with OpenRouter `microsoft/mai-voice-2`:
+
+```json
+{
+  "model_list": [
+    {
+      "model_name": "mai-voice-2",
+      "provider": "openrouter",
+      "model": "microsoft/mai-voice-2",
+      "api_base": "https://openrouter.ai/api/v1",
+      "extra_body": {
+        "voice": "en-US-Harper:MAI-Voice-2",
+        "response_format": "mp3"
+      },
+      "api_keys": ["sk-or-your-openrouter-key"]
+    }
+  ],
+  "voice": {
+    "tts_model_name": "mai-voice-2"
+  }
+}
+```
+
+Notes that matter:
+
+- PicoClaw still uses the OpenAI-compatible `/audio/speech` route for this setup.
+- The default TTS request uses `voice: alloy` and `response_format: opus`.
+- Override those defaults with `extra_body` when your selected TTS model requires different values.
+
+#### Vendor-Specific Examples
+
+**OpenAI**
+
+```json
+{
+  "model_name": "gpt-5.4",
+  "provider": "openai",
+  "model": "gpt-5.4",
+  "api_keys": ["sk-..."]
+}
+```
+
+**NEAR AI Cloud**
+
+```json
+{
+  "model_name": "nearai-glm",
+  "provider": "nearai",
+  "model": "zai-org/GLM-5.1-FP8",
+  "api_keys": ["your-nearai-api-key"]
+}
+```
+
+**VolcEngine (Doubao)**
+
+```json
+{
+  "model_name": "ark-code-latest",
+  "provider": "volcengine",
+  "model": "ark-code-latest",
+  "api_keys": ["sk-..."]
+}
+```
+
+**智谱 AI (GLM)**
+
+```json
+{
+  "model_name": "glm-4.7",
+  "provider": "zhipu",
+  "model": "glm-4.7",
+  "api_keys": ["your-key"]
+}
+```
+
+**Z.AI Coding Plan (GLM)**
 > Z.AI and 智谱 AI are two brands of the same provider. For the Z.AI Coding Plan use the `openai` model key and the api base as follows, rather than the zhipu config
 ```json
 {

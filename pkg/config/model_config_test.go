@@ -355,3 +355,16 @@ func TestModelConfig_RequestTimeoutDefaultZeroValue(t *testing.T) {
 		t.Fatalf("RequestTimeout = %d, want 0", cfg.RequestTimeout)
 	}
 }
+
+func TestDefaultConfig_IncludesZaiCodingGLM53(t *testing.T) {
+	for _, m := range DefaultConfig().ModelList {
+		if m.ModelName == "glm-5.3" {
+			if m.Provider != "zai" || m.Model != "glm-5.3" ||
+				m.APIBase != "https://api.z.ai/api/coding/paas/v4" {
+				t.Fatalf("unexpected glm-5.3 default: %+v", m)
+			}
+			return
+		}
+	}
+	t.Fatal("default model list missing glm-5.3")
+}

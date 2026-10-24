@@ -64,6 +64,8 @@ func TestNormalizeProvider(t *testing.T) {
 		{"ANTHROPIC", "anthropic"},
 		{"z.ai", "zai"},
 		{"z-ai", "zai"},
+		{"zai-coding", "zai"},
+		{"glm-coding", "zai"},
 		{"Z.AI", "zai"},
 		{"qwen", "qwen-portal"},
 		{"gpt", "openai"},

@@ -1599,3 +1599,18 @@ func TestCreateProviderFromConfig_InvalidToolSchemaTransform(t *testing.T) {
 		t.Fatalf("error = %v, want mention tool_schema_transform", err)
 	}
 }
+
+func TestZaiCodingDefaultAPIBaseAndModels(t *testing.T) {
+	if got := getDefaultAPIBase("zai"); got != "https://api.z.ai/api/coding/paas/v4" {
+		t.Fatalf("getDefaultAPIBase(zai) = %q", got)
+	}
+	found := false
+	for _, m := range modelProviderOptionsByName["zai"].CommonModels {
+		if m == "glm-5.3" {
+			found = true
+		}
+	}
+	if !found {
+		t.Fatal("zai CommonModels missing glm-5.3")
+	}
+}
