@@ -515,8 +515,8 @@ var modelProviderOptionsByName = map[string]ModelProviderOption{
 		DefaultModelAllowed: true,
 		SupportsFetch:       true,
 		Priority:            37,
-		CommonModels:        []string{"glm-5", "glm-4.7", "glm-4.5-air", "glm-4-flash-250414"},
-		Aliases:             []string{"z.ai", "z-ai"},
+		CommonModels:        []string{"glm-5.3", "glm-5.3-flash", "glm-5", "glm-4.7", "glm-4.5-air"},
+		Aliases:             []string{"z.ai", "z-ai", "zai-coding", "glm-coding"},
 		httpAPI:             true,
 	},
 	"alibaba-coding": {

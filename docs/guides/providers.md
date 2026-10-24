@@ -11,7 +11,7 @@
 | ------------ | --------------------------------------- | ------------------------------------------------------------ |
 | `gemini`     | LLM (Gemini direct)                     | [aistudio.google.com](https://aistudio.google.com)           |
 | `zhipu`      | LLM (Zhipu direct)                      | [bigmodel.cn](https://bigmodel.cn)                           |
-| `zai-coding` | LLM (Z.AI Coding Plan)                | [z.ai](https://z.ai/manage-apikey/apikey-list)           |
+| `zai`        | LLM (Z.AI Coding Plan)                | [z.ai](https://z.ai/manage-apikey/apikey-list)           |
 | `volcengine` | LLM(Volcengine direct)                  | [volcengine.com](https://www.volcengine.com/activity/codingplan?utm_campaign=PicoClaw&utm_content=PicoClaw&utm_medium=devrel&utm_source=OWO&utm_term=PicoClaw)                 |
 | `openrouter` | LLM (recommended, access to all models) | [openrouter.ai](https://openrouter.ai)                       |
 | `anthropic`  | LLM (Claude direct)                     | [console.anthropic.com](https://console.anthropic.com)       |
@@ -54,7 +54,7 @@ This design also enables **multi-agent support** with flexible provider selectio
 | **NEAR AI Cloud**   | `nearai`          | `https://cloud-api.near.ai/v1`                      | OpenAI    | [Get Key](https://near.ai)                                       |
 | **Anthropic**       | `anthropic`       | `https://api.anthropic.com/v1`                      | Anthropic | [Get Key](https://console.anthropic.com)                         |
 | **智谱 AI (GLM)**   | `zhipu`           | `https://open.bigmodel.cn/api/paas/v4`              | OpenAI    | [Get Key](https://open.bigmodel.cn/usercenter/proj-mgmt/apikeys) |
-| **Z.AI Coding Plan** | `openai`         | `https://api.z.ai/api/coding/paas/v4`               | OpenAI    | [Get Key](https://z.ai/manage-apikey/apikey-list)                |
+| **Z.AI Coding Plan** | `zai`            | `https://api.z.ai/api/coding/paas/v4`               | OpenAI    | [Get Key](https://z.ai/manage-apikey/apikey-list)                |
 | **DeepSeek**        | `deepseek`        | `https://api.deepseek.com/v1`                       | OpenAI    | [Get Key](https://platform.deepseek.com)                         |
 | **Google Gemini**   | `gemini`          | `https://generativelanguage.googleapis.com/v1beta`  | Gemini    | [Get Key](https://aistudio.google.com/api-keys)                  |
 | **Groq**            | `groq`            | `https://api.groq.com/openai/v1`                    | OpenAI    | [Get Key](https://console.groq.com)                              |
@@ -292,12 +292,12 @@ Notes that matter:
 ```
 
 **Z.AI Coding Plan (GLM)**
-> Z.AI and 智谱 AI are two brands of the same provider. For the Z.AI Coding Plan use the `openai` model key and the api base as follows, rather than the zhipu config
+> Z.AI and 智谱 AI are two brands of the same provider. For the Z.AI Coding Plan use the `zai` provider (aliases: `zai-coding`, `z.ai`, `glm-coding`); its default api base is the coding endpoint. China users: set `api_base` to `https://open.bigmodel.cn/api/coding/paas/v4`.
 ```json
 {
-  "model_name": "glm-4.7",
-  "provider": "openai",
-  "model": "glm-4.7",
+  "model_name": "glm-5.3",
+  "provider": "zai",
+  "model": "glm-5.3",
   "api_keys": ["your-z.ai-key"],
   "api_base": "https://api.z.ai/api/coding/paas/v4"
 }
@@ -405,10 +405,10 @@ If the standard Zhipu endpoint (`https://open.bigmodel.cn/api/paas/v4`) returns 
 
 ```json
 {
-  "model_name": "glm-4.7",
-  "provider": "openai",
-  "model": "glm-4.7",
-  "api_keys": ["your-zhipu-api-key"],
+  "model_name": "glm-5.3",
+  "provider": "zai",
+  "model": "glm-5.3",
+  "api_keys": ["your-z.ai-api-key"],
   "api_base": "https://api.z.ai/api/coding/paas/v4"
 }
 ```

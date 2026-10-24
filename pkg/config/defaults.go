@@ -76,6 +76,14 @@ func DefaultConfig() *Config {
 				APIBase:   "https://open.bigmodel.cn/api/paas/v4",
 			},
 
+			// Z.ai GLM Coding Plan - https://z.ai/manage-apikey/apikey-list
+			{
+				ModelName: "glm-5.3",
+				Provider:  "zai",
+				Model:     "glm-5.3",
+				APIBase:   "https://api.z.ai/api/coding/paas/v4",
+			},
+
 			// OpenAI - https://platform.openai.com/api-keys
 			{
 				ModelName: "gpt-5.4",
