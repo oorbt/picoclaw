@@ -255,3 +255,22 @@ func TestNormalizeInstallTargetForRegistryCanonicalizesGitHubURLs(t *testing.T) 
 	)
 	assert.Equal(t, "org/repo/skills/pr-review", got)
 }
+
+func TestParseOwnerSkillRef(t *testing.T) {
+	owner, slug, err := utils.ParseOwnerSkillRef("@iahmadzain/home-assistant")
+	assert.NoError(t, err)
+	assert.Equal(t, "iahmadzain", owner)
+	assert.Equal(t, "home-assistant", slug)
+	owner, slug, err = utils.ParseOwnerSkillRef("a/b")
+	assert.NoError(t, err)
+	assert.Equal(t, "a", owner)
+	assert.Equal(t, "b", slug)
+	owner, slug, err = utils.ParseOwnerSkillRef("github")
+	assert.NoError(t, err)
+	assert.Empty(t, owner)
+	assert.Equal(t, "github", slug)
+	for _, bad := range []string{"", "@../x", "a/b/c", "..", "@a", "a/..", "a b/c"} {
+		_, _, err = utils.ParseOwnerSkillRef(bad)
+		assert.Error(t, err, bad)
+	}
+}

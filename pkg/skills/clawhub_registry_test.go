@@ -336,3 +336,80 @@ func createTestZip(t *testing.T, files map[string]string) []byte {
 	require.NoError(t, zw.Close())
 	return buf.Bytes()
 }
+
+func TestClawHubRegistryOwnerQualifiedInstall(t *testing.T) {
+	zipBuf := createTestZip(t, map[string]string{
+		"SKILL.md": "---\nname: home-assistant\ndescription: HA\n---\nbody",
+	})
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/api/v1/skills/home-assistant":
+			if r.URL.Query().Get("ownerHandle") != "iahmadzain" {
+				w.WriteHeader(http.StatusConflict)
+				_, _ = w.Write([]byte(`{"code":"AMBIGUOUS_SKILL_SLUG","matches":[{"ref":"@iahmadzain/home-assistant"},{"ref":"@seanford/home-assistant"}]}`))
+				return
+			}
+			_, _ = w.Write([]byte(`{"skill":{"slug":"home-assistant","displayName":"HA","summary":"sum"},` +
+				`"latestVersion":{"version":"2.0.0"},"owner":{"handle":"iahmadzain"},` +
+				`"moderation":{"isSuspicious":true,"isMalwareBlocked":false}}`))
+		case "/api/v1/download":
+			assert.Equal(t, "home-assistant", r.URL.Query().Get("slug"))
+			assert.Equal(t, "iahmadzain", r.URL.Query().Get("ownerHandle"))
+			assert.Equal(t, "2.0.0", r.URL.Query().Get("version"))
+			_, _ = w.Write(zipBuf)
+		default:
+			w.WriteHeader(http.StatusNotFound)
+		}
+	}))
+	defer srv.Close()
+	reg := newTestRegistry(srv.URL, "")
+
+	for _, ref := range []string{"@iahmadzain/home-assistant", "iahmadzain/home-assistant"} {
+		dir, err := reg.ResolveInstallDirName(ref)
+		require.NoError(t, err)
+		assert.Equal(t, "home-assistant", dir)
+		assert.Equal(t, "@iahmadzain/home-assistant", reg.NormalizeInstallTarget(ref))
+
+		meta, err := reg.GetSkillMeta(context.Background(), ref)
+		require.NoError(t, err)
+		assert.Equal(t, "@iahmadzain/home-assistant", meta.Slug)
+		assert.Equal(t, "2.0.0", meta.LatestVersion)
+		assert.True(t, meta.IsSuspicious)
+
+		target := filepath.Join(t.TempDir(), "home-assistant")
+		res, err := reg.DownloadAndInstall(context.Background(), ref, "", target)
+		require.NoError(t, err)
+		assert.Equal(t, "2.0.0", res.Version)
+		assert.FileExists(t, filepath.Join(target, "SKILL.md"))
+	}
+	assert.Equal(t, srv.URL+"/iahmadzain/skills/home-assistant", reg.SkillURL("@iahmadzain/home-assistant", ""))
+
+	// Bare slug is ambiguous: error must point at @owner/slug.
+	_, err := reg.DownloadAndInstall(context.Background(), "home-assistant", "", t.TempDir())
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "@owner/slug")
+	assert.Contains(t, err.Error(), "@seanford/home-assistant")
+}
+
+func TestClawHubRegistryRejectsUnsafeRefs(t *testing.T) {
+	reg := newTestRegistry("http://unused", "")
+	for _, ref := range []string{"@../x", "@a/../b", "a/b/c", "@a/b/c", "@", "@/x", "a/", "/a", "@slug", `a\b`, "a/.b"} {
+		_, err := reg.ResolveInstallDirName(ref)
+		assert.Error(t, err, ref)
+		_, err = reg.GetSkillMeta(context.Background(), ref)
+		assert.Error(t, err, ref)
+		_, err = reg.DownloadAndInstall(context.Background(), ref, "", t.TempDir())
+		assert.Error(t, err, ref)
+	}
+}
+
+func TestClawHubRegistrySearchOwnerQualified(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = w.Write([]byte(`{"results":[{"score":1,"slug":"home-assistant","ownerHandle":"seanford","summary":"s"}]}`))
+	}))
+	defer srv.Close()
+	results, err := newTestRegistry(srv.URL, "").Search(context.Background(), "ha", 5)
+	require.NoError(t, err)
+	require.Len(t, results, 1)
+	assert.Equal(t, "@seanford/home-assistant", results[0].Slug)
+}

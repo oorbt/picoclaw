@@ -192,7 +192,9 @@ func TestInstallSkillToolUnsafeSlug(t *testing.T) {
 
 	cases := []string{
 		"../etc/passwd",
-		"path/traversal",
+		"path/to/traversal",
+		"@../x",
+		"@owner/../x",
 		"path\\traversal",
 	}
 
@@ -204,6 +206,18 @@ func TestInstallSkillToolUnsafeSlug(t *testing.T) {
 		assert.True(t, result.IsError, "slug %q should be rejected", slug)
 		assert.Contains(t, result.ForLLM, "invalid slug")
 	}
+}
+
+func TestInstallSkillToolAtPrefixDefaultsToClawHub(t *testing.T) {
+	registryMgr := skills.NewRegistryManager()
+	registryMgr.AddRegistry(skills.NewClawHubRegistry(skills.ClawHubConfig{Enabled: true}))
+	tool := NewInstallSkillTool(registryMgr, t.TempDir())
+
+	// No registry given: '@' routes to clawhub (not "registry github not found"),
+	// where the unsafe owner is rejected before any network call.
+	result := tool.Execute(context.Background(), map[string]any{"slug": "@../x"})
+	assert.True(t, result.IsError)
+	assert.Contains(t, result.ForLLM, "invalid slug")
 }
 
 func TestInstallSkillToolAlreadyExists(t *testing.T) {

@@ -45,7 +45,7 @@ func (t *InstallSkillTool) Name() string {
 }
 
 func (t *InstallSkillTool) Description() string {
-	return "Install a skill from a registry by slug. Defaults to GitHub when registry is omitted. Downloads and extracts the skill into the workspace. Use find_skills first to discover available skills."
+	return "Install a skill from a registry by slug. Defaults to GitHub when registry is omitted (identifiers like '@owner/slug' default to clawhub). For ClawHub, use the owner-qualified '@owner/slug' exactly as shown by find_skills. Downloads and extracts the skill into the workspace. Use find_skills first to discover available skills."
 }
 
 func (t *InstallSkillTool) Parameters() map[string]any {
@@ -54,7 +54,7 @@ func (t *InstallSkillTool) Parameters() map[string]any {
 		"properties": map[string]any{
 			"slug": map[string]any{
 				"type":        "string",
-				"description": "The unique slug of the skill to install (e.g., 'github', 'docker-compose')",
+				"description": "The skill identifier to install (e.g., 'github', 'docker-compose', or ClawHub's '@owner/slug')",
 			},
 			"version": map[string]any{
 				"type":        "string",
@@ -88,6 +88,10 @@ func (t *InstallSkillTool) Execute(ctx context.Context, args map[string]any) *To
 	registryName, _ := args["registry"].(string)
 	if registryName == "" {
 		registryName = defaultSkillRegistryName
+		if strings.HasPrefix(strings.TrimSpace(slug), "@") {
+			// ClawHub owner-qualified identifier (@owner/slug).
+			registryName = "clawhub"
+		}
 	}
 	if err := utils.ValidateSkillIdentifier(registryName); err != nil {
 		return ErrorResult(fmt.Sprintf("invalid registry %q: error: %s", registryName, err.Error()))
