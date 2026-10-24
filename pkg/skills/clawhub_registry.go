@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/sipeed/picoclaw/pkg/config"
@@ -49,6 +50,22 @@ type clawHubRegistryPrivateConfig struct {
 	MaxZipSize      int    `json:"max_zip_size"`
 	MaxResponseSize int    `json:"max_response_size"`
 }
+
+// ClawHub owner-scoped skills (verified against the live API, 2026-10):
+//   - Slugs are only unique per owner. GET {skills}/{slug} on a slug that several
+//     owners publish returns HTTP 409 {"code":"AMBIGUOUS_SKILL_SLUG","matches":[{"ref":"@owner/slug",...}]}.
+//   - Meta: GET {skills}/{slug}?ownerHandle={owner} (also accepts ?owner=); unknown
+//     owner gives 404. The body is nested: {"skill":{slug,displayName,summary},
+//     "latestVersion":{version},"owner":{handle},"moderation":{...}}.
+//   - Download: GET {download}?slug={slug}&ownerHandle={owner}[&version=...].
+//     A "@owner/slug" or "owner/slug" value in the slug param is a 404.
+//   - Search results carry a top-level "ownerHandle" and install.reference
+//     ("owner/slug"); we expose "@owner/slug" as SearchResult.Slug.
+//
+// Identifiers accepted: "@owner/slug", "owner/slug", or a bare "slug". Skills are
+// installed into a directory named after the slug alone (matching the SKILL.md
+// name); installing two owners' skills with the same slug collides and reports
+// "already installed".
 
 // ClawHubRegistry implements SkillRegistry for the ClawHub platform.
 type ClawHubRegistry struct {
@@ -120,17 +137,62 @@ func (c *ClawHubRegistry) Name() string {
 }
 
 func (c *ClawHubRegistry) ResolveInstallDirName(target string) (string, error) {
-	if err := utils.ValidateSkillIdentifier(target); err != nil {
+	_, slug, err := utils.ParseOwnerSkillRef(target)
+	if err != nil {
 		return "", err
 	}
-	return target, nil
+	return slug, nil
+}
+
+// NormalizeInstallTarget canonicalizes owner-qualified targets to "@owner/slug".
+func (c *ClawHubRegistry) NormalizeInstallTarget(target string) string {
+	owner, slug, err := utils.ParseOwnerSkillRef(target)
+	if err != nil {
+		return target
+	}
+	return qualifiedSlug(owner, slug)
+}
+
+func qualifiedSlug(owner, slug string) string {
+	if owner == "" {
+		return slug
+	}
+	return "@" + owner + "/" + slug
 }
 
 func (c *ClawHubRegistry) SkillURL(slug, _ string) string {
-	if slug == "" {
+	owner, bare, err := utils.ParseOwnerSkillRef(slug)
+	if err != nil {
 		return ""
 	}
-	return c.baseURL + "/skills/" + url.PathEscape(slug)
+	if owner != "" {
+		return c.baseURL + "/" + url.PathEscape(owner) + "/skills/" + url.PathEscape(bare)
+	}
+	return c.baseURL + "/skills/" + url.PathEscape(bare)
+}
+
+// ambiguousSlugError turns ClawHub's 409 AMBIGUOUS_SKILL_SLUG response into a
+// message telling the user to pick an owner. Returns nil if err is not one.
+func ambiguousSlugError(slug string, err error) error {
+	if err == nil || !strings.Contains(err.Error(), "AMBIGUOUS_SKILL_SLUG") {
+		return nil
+	}
+	hint := "use the owner-qualified form @owner/slug"
+	if i := strings.Index(err.Error(), "{"); i >= 0 {
+		var amb struct {
+			Matches []struct {
+				Ref string `json:"ref"`
+			} `json:"matches"`
+		}
+		if json.Unmarshal([]byte(err.Error()[i:]), &amb) == nil && len(amb.Matches) > 0 {
+			refs := make([]string, 0, len(amb.Matches))
+			for _, m := range amb.Matches {
+				refs = append(refs, m.Ref)
+			}
+			hint += " (candidates: " + strings.Join(refs, ", ") + ")"
+		}
+	}
+	return fmt.Errorf("skill slug %q is ambiguous on ClawHub: %s", slug, hint)
 }
 
 func (c ClawHubConfig) IsEnabled() bool {
@@ -150,6 +212,7 @@ type clawhubSearchResponse struct {
 type clawhubSearchResult struct {
 	Score       float64 `json:"score"`
 	Slug        *string `json:"slug"`
+	OwnerHandle *string `json:"ownerHandle"`
 	DisplayName *string `json:"displayName"`
 	Summary     *string `json:"summary"`
 	Version     *string `json:"version"`
@@ -197,7 +260,7 @@ func (c *ClawHubRegistry) Search(ctx context.Context, query string, limit int) (
 
 		results = append(results, SearchResult{
 			Score:        r.Score,
-			Slug:         slug,
+			Slug:         qualifiedSlug(utils.DerefStr(r.OwnerHandle, ""), slug),
 			DisplayName:  displayName,
 			Summary:      summary,
 			Version:      utils.DerefStr(r.Version, ""),
@@ -210,12 +273,26 @@ func (c *ClawHubRegistry) Search(ctx context.Context, query string, limit int) (
 
 // --- GetSkillMeta ---
 
+// clawhubSkillResponse accepts both the current nested shape ({"skill":{...}})
+// and the legacy flat shape (slug/displayName/summary at the top level).
 type clawhubSkillResponse struct {
 	Slug          string                 `json:"slug"`
 	DisplayName   string                 `json:"displayName"`
 	Summary       string                 `json:"summary"`
+	Skill         *clawhubSkillInfo      `json:"skill"`
+	Owner         *clawhubOwnerInfo      `json:"owner"`
 	LatestVersion *clawhubVersionInfo    `json:"latestVersion"`
 	Moderation    *clawhubModerationInfo `json:"moderation"`
+}
+
+type clawhubSkillInfo struct {
+	Slug        string `json:"slug"`
+	DisplayName string `json:"displayName"`
+	Summary     string `json:"summary"`
+}
+
+type clawhubOwnerInfo struct {
+	Handle string `json:"handle"`
 }
 
 type clawhubVersionInfo struct {
@@ -227,15 +304,22 @@ type clawhubModerationInfo struct {
 	IsSuspicious     bool `json:"isSuspicious"`
 }
 
-func (c *ClawHubRegistry) GetSkillMeta(ctx context.Context, slug string) (*SkillMeta, error) {
-	if err := utils.ValidateSkillIdentifier(slug); err != nil {
-		return nil, fmt.Errorf("invalid slug %q: error: %s", slug, err.Error())
+func (c *ClawHubRegistry) GetSkillMeta(ctx context.Context, ref string) (*SkillMeta, error) {
+	owner, slug, err := utils.ParseOwnerSkillRef(ref)
+	if err != nil {
+		return nil, fmt.Errorf("invalid slug %q: error: %s", ref, err.Error())
 	}
 
 	u := c.baseURL + c.skillsPath + "/" + url.PathEscape(slug)
+	if owner != "" {
+		u += "?" + url.Values{"ownerHandle": {owner}}.Encode()
+	}
 
 	body, err := c.doGet(ctx, u)
 	if err != nil {
+		if ambErr := ambiguousSlugError(slug, err); ambErr != nil {
+			return nil, ambErr
+		}
 		return nil, fmt.Errorf("skill metadata request failed: %w", err)
 	}
 
@@ -244,8 +328,15 @@ func (c *ClawHubRegistry) GetSkillMeta(ctx context.Context, slug string) (*Skill
 		return nil, fmt.Errorf("failed to parse skill metadata: %w", err)
 	}
 
+	if resp.Skill != nil {
+		resp.Slug, resp.DisplayName, resp.Summary = resp.Skill.Slug, resp.Skill.DisplayName, resp.Skill.Summary
+	}
+	metaOwner := owner
+	if resp.Owner != nil && resp.Owner.Handle != "" {
+		metaOwner = resp.Owner.Handle
+	}
 	meta := &SkillMeta{
-		Slug:         resp.Slug,
+		Slug:         qualifiedSlug(metaOwner, resp.Slug),
 		DisplayName:  resp.DisplayName,
 		Summary:      resp.Summary,
 		RegistryName: c.Name(),
@@ -269,16 +360,20 @@ func (c *ClawHubRegistry) GetSkillMeta(ctx context.Context, slug string) (*Skill
 // Returns an InstallResult for the caller to use for moderation decisions.
 func (c *ClawHubRegistry) DownloadAndInstall(
 	ctx context.Context,
-	slug, version, targetDir string,
+	ref, version, targetDir string,
 ) (*InstallResult, error) {
-	if err := utils.ValidateSkillIdentifier(slug); err != nil {
-		return nil, fmt.Errorf("invalid slug %q: error: %s", slug, err.Error())
+	owner, slug, err := utils.ParseOwnerSkillRef(ref)
+	if err != nil {
+		return nil, fmt.Errorf("invalid slug %q: error: %s", ref, err.Error())
 	}
 
 	// Step 1: Fetch metadata (with fallback).
 	result := &InstallResult{}
-	meta, err := c.GetSkillMeta(ctx, slug)
+	meta, err := c.GetSkillMeta(ctx, ref)
 	if err != nil {
+		if strings.Contains(err.Error(), "is ambiguous on ClawHub") {
+			return nil, err
+		}
 		// Fallback: proceed without metadata.
 		meta = nil
 	}
@@ -307,6 +402,9 @@ func (c *ClawHubRegistry) DownloadAndInstall(
 
 	q := u.Query()
 	q.Set("slug", slug)
+	if owner != "" {
+		q.Set("ownerHandle", owner)
+	}
 	if installVersion != "latest" {
 		q.Set("version", installVersion)
 	}
@@ -314,6 +412,9 @@ func (c *ClawHubRegistry) DownloadAndInstall(
 
 	tmpPath, err := c.downloadToTempFileWithRetry(ctx, u.String())
 	if err != nil {
+		if ambErr := ambiguousSlugError(slug, err); ambErr != nil {
+			return nil, ambErr
+		}
 		return nil, fmt.Errorf("download failed: %w", err)
 	}
 	defer os.Remove(tmpPath)

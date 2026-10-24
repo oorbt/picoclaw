@@ -2,6 +2,7 @@ package skills
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/spf13/cobra"
 
@@ -17,6 +18,8 @@ func newInstallCommand() *cobra.Command {
 		Example: `
 picoclaw skills install sipeed/picoclaw-skills/weather
 picoclaw skills install --registry clawhub github
+picoclaw skills install @iahmadzain/home-assistant   # '@owner/slug' defaults to the clawhub registry
+picoclaw skills install --registry clawhub owner/slug
 `,
 		Args: func(cmd *cobra.Command, args []string) error {
 			if registry != "" {
@@ -41,6 +44,10 @@ picoclaw skills install --registry clawhub github
 				return skillsInstallFromRegistry(cfg, registry, args[0])
 			}
 
+			if strings.HasPrefix(strings.TrimSpace(args[0]), "@") {
+				// ClawHub owner-qualified identifier; GitHub targets never start with '@'.
+				return skillsInstallFromRegistry(cfg, "clawhub", args[0])
+			}
 			return skillsInstallFromRegistry(cfg, "github", args[0])
 		},
 	}
